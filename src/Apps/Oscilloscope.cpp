@@ -1,7 +1,7 @@
 #include "Oscilloscope.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
- bool Gen = true;
+int Gen = 1;
 
 void OscilloscopeClass::DrawText()
 {
@@ -124,7 +124,7 @@ void OscilloscopeClass::CheckSW()
 			trig_edge = !trig_edge;
 			break;
 		case 139:
-			Gen = !Gen;
+			(Gen > 0) ? (Gen--) : (Gen = 4);
 			break;
 		}
 		DrawText();
@@ -210,7 +210,7 @@ void OscilloscopeClass::CheckSW()
 			trig_edge = !trig_edge;
 			break;
 		case 139:
-			Gen = !Gen;
+			(Gen < 4) ? (Gen++) : (Gen = 0);
 			break;
 		}
 		DrawText();
@@ -316,19 +316,53 @@ void OscilloscopeClass::ClearAndDrawDot(int i)
 	}
 	DrawGrid(i);
 }
-
-const uint8_t gen_pin = 12;
+// Signal generator pin 26
+const uint8_t gen_pin = 25;
 
 void SigGen_Task(void *parameter)
 {
 	pinMode(gen_pin, OUTPUT);
 	for (;;)
 	{
-		if (Gen) 
+		switch (Gen)
 		{
-			digitalWrite(gen_pin, !digitalRead(gen_pin));
+		case 0:
+			for (int MyAngle = 0; MyAngle < 360; MyAngle++)
+			{
+				//dacWrite(gen_pin, (((sin(MyAngle * (6.28f) / 255)) * 120) + 128));
+			    dacWrite(25, int(128 + 80 * (sin(MyAngle*PI/180)+sin(3*MyAngle*PI/180)/3+sin(5*MyAngle*PI/180)/5+sin(7*MyAngle*PI/180)/7+sin(9*MyAngle*PI/180)/9+sin(11*MyAngle*PI/180)/11))); // Square
+				delay(20);
+			}
+			break;
+		case 1:
+			dacWrite(gen_pin, 0);
+			delay(5);
+			dacWrite(gen_pin, 255);
+			delay(5);
+			break;
+		case 2:
+			for (int i = 0; i < 255; i++)
+			{
+				dacWrite(gen_pin, i);
+				delay(20);
+			}
+			break;
+		case 3:
+			for (int i = 0; i < 255; i++)
+			{
+				dacWrite(gen_pin, i);
+				delay(10);
+			}
+			for (int i = 255; i > 0; i--)
+			{
+				dacWrite(gen_pin, i);
+				delay(10);
+			}
+			break;
+		default:
+			delay(10);
+			break;
 		}
-		delay(3);
 	}
 	vTaskDelete(NULL);
 }
@@ -336,8 +370,8 @@ void SigGen_Task(void *parameter)
 
 void OscilloscopeClass::Run()
 {
-	pinMode(4, ANALOG);
-	pinMode(15, ANALOG);
+	//pinMode(ad_ch0, ANALOG);
+	//pinMode(ad_ch1, ANALOG);
 	exitprg = false;
 	GO.Lcd.fillScreen(BLACK);
 	DrawGrid();
@@ -349,7 +383,7 @@ void OscilloscopeClass::Run()
 			"Signal Generator", /* name of the task, a name just for humans */
 			1024,				/* Stack size of task */
 			NULL,				/* parameter of the task */
-			2,					/* priority of the task */
+			1,					/* priority of the task */
 			&Sig_Gen,			/* Task handle to keep track of the created task */
 			0);					/* cpu core number where the task is assigned*/
 	}
